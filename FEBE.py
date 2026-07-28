@@ -22,7 +22,7 @@ def load_data():
     try:
         df = pd.read_excel("FEBE_Academics.xlsx")
     except FileNotFoundError:
-        df = pd.read_csv("febe_academics_clean.csv")
+        df = pd.read_csv("FEBE_Academics.csv")
 
     # Derived fields used across pages
     reg_year = pd.to_numeric(df["Year of first Registration"].astype(str).str.strip(), errors="coerce")
