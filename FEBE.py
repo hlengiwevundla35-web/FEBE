@@ -77,7 +77,7 @@ k1.metric("Total Staff", len(fdf))
 k2.metric("PhD Holders", int((fdf["Qualification Level"] == "Doctorate").sum()))
 k3.metric("Currently Registered", int(fdf["_reg_year"].notna().sum()))
 k4.metric("Overdue Qualifications", int((fdf["Registration Status"] == "Overdue").sum()))
-k5.metric("NRF Rated", int(fdf["NRF Rating Status"].isin(["C1", "C2", "C3", "Y1", "Y2", "B1", "B2", "B3", "A1", "A2"]).sum()))
+k5.metric("NRF Rated", int(fdf["NRF Rating"].isin(["C1", "C2", "C3", "Y1", "Y2", "B1", "B2", "B3", "A1", "A2"]).sum()))
 
 tab_overview, tab_quals, tab_research, tab_workforce = st.tabs(
     ["Overview", "Qualifications", "Research & Funding", "Workforce Planning"]
@@ -100,7 +100,7 @@ with tab_overview:
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        nrf = fdf["NRF Rating Status"].fillna("No rating").replace("", "No rating")
+        nrf = fdf["NRF Rating"].fillna("No rating").replace("", "No rating")
         nrf_counts = nrf.value_counts().reset_index()
         nrf_counts.columns = ["Status", "Count"]
         fig = px.pie(nrf_counts, names="Status", values="Count", title="NRF Rating Status", hole=0.35)
