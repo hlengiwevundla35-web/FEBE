@@ -1,7 +1,7 @@
 """
 FEBE Academics Dashboard
-Run with:  streamlit run febe_dashboard.py
-Expects FEBE_Academics_Clean.xlsx (or febe_academics_clean.csv) in the same folder.
+Run with: streamlit run febe_dashboard.py
+Expects FEBE_Academics.xlsx (or febe_academics_clean.csv) in the same folder.
 """
 
 import pandas as pd
@@ -13,7 +13,6 @@ CURRENT_YEAR = 2026
 
 st.set_page_config(page_title="FEBE Academics Dashboard", layout="wide")
 
-
 # ---------------------------------------------------------------------------
 # DATA LOADING
 # ---------------------------------------------------------------------------
@@ -22,7 +21,7 @@ def load_data():
     try:
         df = pd.read_excel("FEBE_Academics.xlsx")
     except FileNotFoundError:
-        df = pd.read_csv("FEBE_Academics.csv")
+        df = pd.read_csv("febe_academics_clean.csv")
 
     # Derived fields used across pages
     reg_year = pd.to_numeric(df["Year of first Registration"].astype(str).str.strip(), errors="coerce")
@@ -39,7 +38,6 @@ def load_data():
     df["_retire_year"] = ret_year.where(ret_year >= CURRENT_YEAR)
 
     return df
-
 
 df = load_data()
 
@@ -77,7 +75,8 @@ k1.metric("Total Staff", len(fdf))
 k2.metric("PhD Holders", int((fdf["Qualification Level"] == "Doctorate").sum()))
 k3.metric("Currently Registered", int(fdf["_reg_year"].notna().sum()))
 k4.metric("Overdue Qualifications", int((fdf["Registration Status"] == "Overdue").sum()))
-k5.metric("NRF Rated", int(fdf["NRF Rating"].isin(["C1", "C2", "C3", "Y1", "Y2", "B1", "B2", "B3", "A1", "A2"]).sum()))
+k5.metric("NRF Rated", int(fdf['NRF Rating Status'].isin(
+    ["C1", "C2", "C3", "Y1", "Y2", "B1", "B2", "B3", "A1", "A2"]).sum()))
 
 tab_overview, tab_quals, tab_research, tab_workforce = st.tabs(
     ["Overview", "Qualifications", "Research & Funding", "Workforce Planning"]
@@ -100,7 +99,7 @@ with tab_overview:
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        nrf = fdf["NRF Rating"].fillna("No rating").replace("", "No rating")
+        nrf = fdf["NRF Status"].fillna("No rating").replace("", "No rating")
         nrf_counts = nrf.value_counts().reset_index()
         nrf_counts.columns = ["Status", "Count"]
         fig = px.pie(nrf_counts, names="Status", values="Count", title="NRF Rating Status", hole=0.35)
@@ -129,8 +128,8 @@ with tab_quals:
 
     with c1:
         reg = fdf[fdf["_reg_year"].notna()]
-        fig = px.histogram(reg, x="_reg_year", nbins=15, title="Qualification Registration Start Year",
-                            labels={"_reg_year": "Year"})
+        fig = px.histogram(reg, x="_reg_year", nbins=15,
+                            title="Qualification Registration Start Year", labels={"_reg_year": "Year"})
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
@@ -153,10 +152,10 @@ with tab_quals:
 # TAB 3 — RESEARCH & FUNDING
 # ---------------------------------------------------------------------------
 with tab_research:
-    out_cols = {"2022": "2022  Research output", "2023": "2023  Research output",
+    out_cols = {"2022": "2022 Research output", "2023": "2023 Research output",
                 "2024": "2024 Research Output", "2025": "2025 Research Output"}
     out_cols = {yr: col for yr, col in out_cols.items() if col in fdf.columns}
-    required = pd.to_numeric(fdf["Required  Research Units"].astype(str).str.strip().replace("-", np.nan),
+    required = pd.to_numeric(fdf["Required Research Units"].astype(str).str.strip().replace("-", np.nan),
                               errors="coerce")
 
     c1, c2 = st.columns(2)
@@ -181,7 +180,8 @@ with tab_research:
                 rows.append({"Year": yr, "Status": s, "Count": v})
         gap_df = pd.DataFrame(rows)
         fig = px.bar(gap_df, x="Year", y="Count", color="Status", barmode="group",
-                     color_discrete_map={"Under target": "#a33", "On target": "#d9d9d9", "Over target": "#2c5f8a"},
+                     color_discrete_map={"Under target": "#a33", "On target": "#d9d9d9",
+                                         "Over target": "#2c5f8a"},
                      title="Output vs Required Units by Year")
         st.plotly_chart(fig, use_container_width=True)
 
@@ -200,8 +200,8 @@ with tab_research:
         "Principal Sup. (Masters)": "Principal Supervisor-Masters",
         "Principal Sup. (Doctorate)": "Principal Supervisor- Doctorate",
     }
-    sup_totals = {label: pd.to_numeric(fdf[col], errors="coerce").sum() for label, col in sup_cols.items()
-                  if col in fdf.columns}
+    sup_totals = {label: pd.to_numeric(fdf[col], errors="coerce").sum()
+                  for label, col in sup_cols.items() if col in fdf.columns}
     sup_df = pd.DataFrame({"Role": list(sup_totals.keys()), "Students": list(sup_totals.values())})
     fig = px.bar(sup_df, x="Students", y="Role", orientation="h", title="Total Supervision Load by Role")
     st.plotly_chart(fig, use_container_width=True)
@@ -219,23 +219,31 @@ with tab_workforce:
     c1, c2 = st.columns(2)
 
     with c1:
-      senior = fdf["Direct Senior Surname"].astype(str).str.strip().str.upper()
-      senior = senior[(senior != "") & (senior != "NAN")]
-    # Exclude Balkaran and Ramsuroop from THIS chart only — their reports
-    # still count everywhere else in the dashboard.
-      senior = senior[~senior.isin(["BALKARAN", "RAMSUROOP"])]
+        # Span of control by Direct Senior.
+        # Balkaran and Ramsuroop are excluded from THIS CHART ONLY — this is a
+        # local, chart-scoped filter and does not touch fdf/df, so their direct
+        # reports still count everywhere else in the dashboard (KPIs, other
+        # tabs, retirement analysis, etc.).
+        senior = fdf["Direct Senior Surname"].astype(str).str.strip().str.upper()
+        senior = senior[(senior != "") & (senior != "NAN")]
+        senior = senior[~senior.isin(["BALKARAN", "RAMSUROOP"])]
 
-      span = senior.value_counts().reset_index()
-      span.columns = ["Direct Senior", "Direct Reports"]
-      fig = px.bar(span.sort_values("Direct Reports"), x="Direct Reports", y="Direct Senior",
-                 orientation="h", title="Span of Control by Direct Senior")
-      st.plotly_chart(fig, use_container_width=True)
+        span = senior.value_counts().reset_index()
+        span.columns = ["Direct Senior", "Direct Reports"]
+        fig = px.bar(
+            span.sort_values("Direct Reports"), x="Direct Reports", y="Direct Senior",
+            orientation="h",
+            title=f"Span of Control by Direct Senior (n={span['Direct Reports'].sum()} staff, "
+                  f"{span.shape[0]} seniors)"
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
     with c2:
         window = fdf["_retire_year"].between(CURRENT_YEAR, CURRENT_YEAR + 9)
         sub = fdf.loc[window].copy()
         sub["5yr bucket"] = pd.cut(
-            sub["_retire_year"], bins=[CURRENT_YEAR - 1, CURRENT_YEAR + 4, CURRENT_YEAR + 9],
+            sub["_retire_year"],
+            bins=[CURRENT_YEAR - 1, CURRENT_YEAR + 4, CURRENT_YEAR + 9],
             labels=[f"{CURRENT_YEAR}-{CURRENT_YEAR+4}", f"{CURRENT_YEAR+5}-{CURRENT_YEAR+9}"]
         )
         sub["Qual Group"] = sub["Qualification Level"].apply(lambda x: "PhD holder" if x == "Doctorate" else "Other")
@@ -247,6 +255,9 @@ with tab_workforce:
 
     st.subheader("Staff retiring within 5 years")
     near_term = fdf[fdf["_retire_year"].between(CURRENT_YEAR, CURRENT_YEAR + 4)]
+    ret_cols = ["First name", "Surname", "Department Name", "Post Name", "Qualification Level", "Retirement year"]
+    ret_cols = [c for c in ret_cols if c in fdf.columns]
+    st.dataframe(near_term[ret_cols].sort_values("Retirement year"), use_container_width=True)
     ret_cols = ["First name", "Surname", "Department Name", "Post Name", "Qualification Level", "Retirement year"]
     ret_cols = [c for c in ret_cols if c in fdf.columns]
     st.dataframe(near_term[ret_cols].sort_values("Retirement year"), use_container_width=True)
