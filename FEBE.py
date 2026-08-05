@@ -219,13 +219,17 @@ with tab_workforce:
     c1, c2 = st.columns(2)
 
     with c1:
-        senior = fdf["Direct Senior Surname"].astype(str).str.strip().str.upper()
-        senior = senior[(senior != "") & (senior != "NAN")]
-        span = senior.value_counts().reset_index()
-        span.columns = ["Direct Senior", "Direct Reports"]
-        fig = px.bar(span.sort_values("Direct Reports"), x="Direct Reports", y="Direct Senior",
-                     orientation="h", title="Span of Control by Direct Senior")
-        st.plotly_chart(fig, use_container_width=True)
+    senior = fdf["Direct Senior Surname"].astype(str).str.strip().str.upper()
+    senior = senior[(senior != "") & (senior != "NAN")]
+    # Exclude Balkaran and Ramsuroop from THIS chart only — their reports
+    # still count everywhere else in the dashboard.
+    senior = senior[~senior.isin(["BALKARAN", "RAMSUROOP"])]
+
+    span = senior.value_counts().reset_index()
+    span.columns = ["Direct Senior", "Direct Reports"]
+    fig = px.bar(span.sort_values("Direct Reports"), x="Direct Reports", y="Direct Senior",
+                 orientation="h", title="Span of Control by Direct Senior")
+    st.plotly_chart(fig, use_container_width=True)
 
     with c2:
         window = fdf["_retire_year"].between(CURRENT_YEAR, CURRENT_YEAR + 9)
