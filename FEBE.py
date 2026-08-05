@@ -4,6 +4,7 @@ Run with: streamlit run febe_dashboard.py
 Expects FEBE_Academics.xlsx (or febe_academics_clean.csv) in the same folder.
 """
 
+import re
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -22,6 +23,13 @@ def load_data():
         df = pd.read_excel("FEBE_Academics.xlsx")
     except FileNotFoundError:
         df = pd.read_csv("febe_academics_clean.csv")
+
+    # Normalize column headers: Excel headers sometimes contain embedded
+    # line breaks or stray spaces (e.g. "Required \nResearch\nUnits"), which
+    # makes df["Required Research Units"] raise a KeyError even though the
+    # column "looks" the same. Collapse any whitespace/newlines in headers
+    # down to single spaces so every reference in this file matches reliably.
+    df.columns = [re.sub(r"\s+", " ", str(c)).strip() for c in df.columns]
 
     # Derived fields used across pages
     reg_year = pd.to_numeric(df["Year of first Registration"].astype(str).str.strip(), errors="coerce")
@@ -75,9 +83,10 @@ k1.metric("Total Staff", len(fdf))
 k2.metric("PhD Holders", int((fdf["Qualification Level"] == "Doctorate").sum()))
 k3.metric("Currently Registered", int(fdf["_reg_year"].notna().sum()))
 k4.metric("Overdue Qualifications", int((fdf["Registration Status"] == "Overdue").sum()))
-k5.metric("NRF Rated", int(fdf['NRF Rating Status'].isin(
-    ["C1", "C2", "C3", "Y1", "Y2", "B1", "B2", "B3", "A1", "A2"]).sum()))
-
+nrf_rating_clean = fdf["NRF Rating Status"].astype(str).str.strip().str.upper()
+k5.metric("NRF Rated Status", int(nrf_rating_clean.isin(
+    [["C1", "C2", "C3", "Y1", "Y2", "B1", "B2", "B3", "A1", "A2"]]).sum()))
+# ["C1", "C2", "C3", "Y1", "Y2", "B1", "B2", "B3", "A1", "A2"]
 tab_overview, tab_quals, tab_research, tab_workforce = st.tabs(
     ["Overview", "Qualifications", "Research & Funding", "Workforce Planning"]
 )
@@ -224,7 +233,7 @@ with tab_workforce:
         # local, chart-scoped filter and does not touch fdf/df, so their direct
         # reports still count everywhere else in the dashboard (KPIs, other
         # tabs, retirement analysis, etc.).
-        senior = fdf["Direct Senior Surname"].astype(str).str.strip().str.upper()
+        senior = fdf["HoD Surname"].astype(str).str.strip().str.upper()
         senior = senior[(senior != "") & (senior != "NAN")]
         senior = senior[~senior.isin(["BALKARAN", "RAMSUROOP"])]
 
@@ -255,9 +264,6 @@ with tab_workforce:
 
     st.subheader("Staff retiring within 5 years")
     near_term = fdf[fdf["_retire_year"].between(CURRENT_YEAR, CURRENT_YEAR + 4)]
-    ret_cols = ["First name", "Surname", "Department Name", "Post Name", "Qualification Level", "Retirement year"]
-    ret_cols = [c for c in ret_cols if c in fdf.columns]
-    st.dataframe(near_term[ret_cols].sort_values("Retirement year"), use_container_width=True)
     ret_cols = ["First name", "Surname", "Department Name", "Post Name", "Qualification Level", "Retirement year"]
     ret_cols = [c for c in ret_cols if c in fdf.columns]
     st.dataframe(near_term[ret_cols].sort_values("Retirement year"), use_container_width=True)
