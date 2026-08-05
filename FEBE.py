@@ -100,7 +100,7 @@ with tab_overview:
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        nrf = fdf["NRF Status"].fillna("No rating").replace("", "No rating")
+        nrf = fdf["NRF Rating Status"].fillna("No rating").replace("", "No rating")
         nrf_counts = nrf.value_counts().reset_index()
         nrf_counts.columns = ["Status", "Count"]
         fig = px.pie(nrf_counts, names="Status", values="Count", title="NRF Rating Status", hole=0.35)
